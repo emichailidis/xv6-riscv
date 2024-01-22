@@ -89,3 +89,26 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_setpriority(void)
+{
+  int num;
+
+  argint(0, &num);
+
+  if (num < 1 || num > 20) {
+    printf("Invalid priority value. It must be between 1 and 20.\n");
+    return -1;
+  }
+
+  myproc()->priority = num;
+  return 0;
+}
+
+uint64
+sys_getpinfo(void)
+{
+  
+  return 0;
+}
