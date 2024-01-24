@@ -130,6 +130,8 @@ exec(char *path, char **argv)
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
+  p->priority = 2; //Giving child process default priority of 2
+
  bad:
   if(pagetable)
     proc_freepagetable(pagetable, sz);

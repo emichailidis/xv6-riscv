@@ -6,12 +6,13 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
   int n;
   argint(0, &n);
-  exit(n);
+  exit();
   return 0;  // not reached
 }
 
@@ -111,4 +112,21 @@ sys_getpinfo(void)
 {
   
   return 0;
+}
+int
+sys_cps(void)
+{
+  return cps();
+}
+
+int
+sys_chpr(void)
+{
+  int pid, pr;
+  if(argint(0, &pid) < 0)
+    return -1;
+  if(argint(1, &pr) < 0)
+    return -1;
+
+  return chpr(pid, pr);
 }

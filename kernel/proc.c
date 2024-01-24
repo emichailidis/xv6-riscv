@@ -12,6 +12,11 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+struct {
+struct spinlock lock;
+struct proc proc[NPROC];
+} ptable;                              //marias 
+
 int nextpid = 1;
 struct spinlock pid_lock;
 
@@ -122,8 +127,8 @@ allocproc(void)
   return 0;
 
 found:
-  p->pid = allocpid();
-  p->state = USED;
+  p->pid = nextpid++;
+  p->state = UNUSED;
   p->priority=10;  //Maria default priority 
   
 
@@ -346,46 +351,48 @@ reparent(struct proc *p)
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
-exit(int status)
+exit(void)
 {
-  struct proc *p = myproc();
+  struct proc *curproc = myproc();
+  struct proc *p;
+  int fd;
 
-  if(p == initproc)
+  if(curproc == initproc)
     panic("init exiting");
 
   // Close all open files.
-  for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
-      struct file *f = p->ofile[fd];
-      fileclose(f);
-      p->ofile[fd] = 0;
+  for(fd = 0; fd < NOFILE; fd++){
+    if(curproc->ofile[fd]){
+      fileclose(curproc->ofile[fd]);
+      curproc->ofile[fd] = 0;
     }
   }
 
   begin_op();
-  iput(p->cwd);
+  iput(curproc->cwd);
   end_op();
-  p->cwd = 0;
+  curproc->cwd = 0;
 
-  acquire(&wait_lock);
-
-  // Give any children to init.
-  reparent(p);
+  acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
-  wakeup(p->parent);
-  
-  acquire(&p->lock);
+  wakeup(curproc->parent);
 
-  p->xstate = status;
-  p->state = ZOMBIE;
-
-  release(&wait_lock);
+  // Pass abandoned children to init.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->parent == curproc){
+      p->parent = initproc;
+      if(p->state == ZOMBIE)
+        wakeup(initproc);
+    }
+  }
 
   // Jump into the scheduler, never to return.
+  curproc->state = ZOMBIE;
   sched();
   panic("zombie exit");
 }
+
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
@@ -443,6 +450,7 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+
 void
 scheduler(void)
 {
@@ -472,7 +480,6 @@ scheduler(void)
     }
   }
 }
-
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -682,4 +689,41 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int
+cps()
+{
+struct proc *p;
+//Enables interrupts on this processor.
+//sti();
+
+//Loop over process table looking for process with pid.
+acquire(&ptable.lock);
+printf("name \t pid \t state \t priority \n");
+for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  if(p->state == SLEEPING)
+	  printf("%s \t %d \t SLEEPING \t %d \n ", p->name,p->pid,p->priority);
+	else if(p->state == RUNNING)
+ 	  printf("%s \t %d \t RUNNING \t %d \n ", p->name,p->pid,p->priority);
+	else if(p->state == RUNNABLE)
+ 	  printf("%s \t %d \t RUNNABLE \t %d \n ", p->name,p->pid,p->priority);
+}
+release(&ptable.lock);
+return 22;
+}
+
+int 
+chpr(int pid, int priority)
+{
+	struct proc *p;
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+	  if(p->pid == pid){
+			p->priority = priority;
+			break;
+		}
+	}
+	release(&ptable.lock);
+	return pid;
 }

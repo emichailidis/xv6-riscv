@@ -53,10 +53,11 @@ argraw(int n)
 }
 
 // Fetch the nth 32-bit system call argument.
-void
+int
 argint(int n, int *ip)
 {
   *ip = argraw(n);
+  return *ip;
 }
 
 // Retrieve an argument as a pointer.
@@ -101,9 +102,8 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-
-extern uint64 sys_setpriority(void);
-extern uint64 sys_getpinfo(void);
+extern uint64 sys_cps(void);
+extern uint64 sys_chpr(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -129,8 +129,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_setpriority] sys_setpriority,  
-[SYS_getpinfo] sys_getpinfo,
+[SYS_cps]     sys_cps,
+[SYS_chpr]    sys_chpr,
 };
 
 void
